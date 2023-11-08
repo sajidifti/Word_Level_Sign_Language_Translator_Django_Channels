@@ -1,0 +1,266 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600&display=swap"
+              rel="stylesheet" />
+        <link rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <link rel="shortcut icon" type="image/png" href="img/fav.png" />
+        <link rel="stylesheet" href="{% static 'css/transLatorPhone.css' %}" />
+        <script defer src="{% static 'js/signToText.js' %}"></script>
+        <title>|&nbsp; WLSLT - Word-level Deep Sign Language Recognition</title>
+    </head>
+    <body>
+        <header class="header">
+            <nav class="nav">
+                <a href="https://sajidifti.com/WLASL">
+                    <img src="{% static 'img/WLSLT-logos_transparent.png' %}"
+                         alt="Logo"
+                         class="nav__logo"
+                         id="logo" />
+                </a>
+            </nav>
+        </header>
+        <section class="translator-container">
+            <div class="translator">
+                <div class="top">
+                    <video id="video"
+                           autoplay
+                           playsinline
+                           class="transparent-video"
+                           width="360px"
+                           height="480px"
+                           style="transform: scaleX(-1);
+                                  border-radius: 10px">
+                    </video>
+                    <h2 id="open" style="text-align: center">Opening Camera</h2>
+                    <canvas id="canvas" style="display: none" width="360px" height="480px"></canvas>
+                </div>
+                {% comment %} <div class="container">
+                    <a href="" id="cameraButton"><img src="{% static "img/switch-camera.png" %}" alt="" width="20px"></a>
+                </div> {% endcomment %}
+                <div class="middle">
+                    <a href="" id="cameraButton">
+                        <img src="{% static "img/switch-camera.png" %}" alt="" width="40px">
+                    </a>
+                </div>
+                <div class="bottom">
+                    <p id="translated_field">Translated Text</p>
+                </div>
+            </div>
+            <div class="btns-container">
+                <a href="" id="clearButton">Clear</a>
+            </div>
+        </section>
+        {% comment %} Scripts {% endcomment %}
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script>
+            var canvas = document.getElementById("canvas");
+            var context = canvas.getContext("2d");
+            var video = document.getElementById("video");
+            var img = document.getElementById("client");
+            var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+            var mode = true;
+            var camera = 'user';
+
+            // Set the dimensions of the video element
+            video.width = 360;
+            video.height = 480;
+
+            // Scale the graph canvas accordingly to the window size
+            var widthupdate = window.innerWidth * 0.5;
+            var heightupdate = window.innerHeight * 0.6;
+
+            function Mode(camera) {
+                if (mode == true) {
+                    mode = false;
+                    var ws = new WebSocket(
+                        ws_scheme + "://" + window.location.host + "/"
+                    );
+                    ws.onopen = (event) => {
+                        console.log("WebSocket connected!!!");
+                    };
+                    ws.onmessage = (event) => {
+                        // Remove this section - do not display frames received from the server
+                        // frameUpdate = event.data;
+                        // img.src = "data:image/jpeg;base64," + frameUpdate;
+
+                        //console.log("WebSocket message received: ", event.data);
+                    };
+                    ws.onclose = (event) => {
+                        console.log("Close");
+                    };
+                    if (navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices
+                            .getUserMedia({
+                                video: {
+                                    facingMode: camera
+                                }
+                            })
+                            .then(function(stream) {
+                                video.srcObject = stream;
+                                video.play();
+                                var width = video.width;
+                                var height = video.height;
+                                var delay = 34; // adjust the delay to fit your needs (ms)
+                                var jpegQuality = 0.5; // adjust the quality to fit your needs (0.0 -> 1.0)
+
+                                setInterval(function() {
+                                    context.drawImage(video, 0, 0, width, height);
+                                    canvas.toBlob(
+                                        function(blob) {
+                                            if (ws.readyState == WebSocket.OPEN) {
+                                                if (mode == true) {
+                                                    ws.send(new Uint8Array([]));
+                                                } else {
+                                                    ws.send(blob);
+                                                }
+                                            }
+                                        },
+                                        "image/jpeg",
+                                        jpegQuality
+                                    );
+                                }, delay);
+                            });
+                    }
+                } else if (mode == false) {
+                    mode = true;
+                    video.pause();
+                    video.srcObject.getVideoTracks()[0].stop();
+                    video.srcObject = null;
+                }
+            }
+
+            Mode(camera);
+
+            function ShowVideo() {
+                document.getElementById("open").style.display = "none";
+                document.getElementById("video").style.display = "block";
+            }
+
+            const delayInMilliseconds = 1100;
+
+            setTimeout(ShowVideo, delayInMilliseconds);
+
+            // Change Camera
+
+            var link = document.getElementById("cameraButton");
+
+            link.addEventListener("click", function(event) {
+                event.preventDefault();
+
+                mode = true;
+                video.pause();
+                video.srcObject.getVideoTracks()[0].stop();
+                video.srcObject = null;
+
+                // Mode()
+
+                if (camera == 'user') {
+                    camera = 'environment';
+
+                    document.getElementById("open").innerHTML = "Switching Camera";
+
+                    document.getElementById("video").style.display = "none";
+                    document.getElementById("open").style.display = "block";
+
+                    Mode(camera)
+
+                    var clear_button = document.getElementById("clearButton");
+
+                    clear_button.click();
+
+
+                    setTimeout(ShowVideo, delayInMilliseconds);
+                } else {
+                    camera = 'user';
+
+                    document.getElementById("open").innerHTML = "Switching Camera";
+
+                    document.getElementById("video").style.display = "none";
+                    document.getElementById("open").style.display = "block";
+
+                    Mode(camera)
+
+                    var clear_button = document.getElementById("clearButton");
+
+                    clear_button.click();
+
+                    setTimeout(ShowVideo, delayInMilliseconds);
+                }
+            });
+        </script>
+        <script>
+            $(document).ready(function() {
+                // Get the CSRF token from the cookie
+                function getCookie(name) {
+                    var cookieValue = null;
+                    if (document.cookie && document.cookie !== "") {
+                        var cookies = document.cookie.split(";");
+                        for (var i = 0; i < cookies.length; i++) {
+                            var cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === name + "=") {
+                                cookieValue = decodeURIComponent(
+                                    cookie.substring(name.length + 1)
+                                );
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+
+                // Set the CSRF token header for AJAX requests
+                function setCsrfToken() {
+                    var csrftoken = getCookie("csrftoken");
+                    $.ajaxSetup({
+                        headers: {
+                            "X-CSRFToken": csrftoken
+                        },
+                    });
+                }
+
+                // Function to update the content
+                function updateContent() {
+                    $.ajax({
+                        url: "{% url 'get-sentence' %}",
+                        type: "POST",
+                        success: function(response) {
+                            var clearedContent = response.content;
+                            $("#translated_field").html(clearedContent);
+                        },
+                    });
+                }
+
+                // Call the update function initially
+                setCsrfToken();
+                updateContent();
+
+                // Set interval to update the content every second (1000 milliseconds)
+                setInterval(function() {
+                    setCsrfToken();
+                    updateContent();
+                }, 1000);
+
+                // Attach event listener to the clear button
+                $("#clearButton").click(function(event) {
+                    event.preventDefault(); // Prevent the default behavior
+
+                    setCsrfToken();
+                    $.ajax({
+                        url: "{% url 'clear-sentence' %}",
+                        type: "POST",
+                        success: function(response) {
+                            var clearedContent = response.content;
+                            $("#translated_field").html(clearedContent);
+                        },
+                    });
+                });
+
+            });
+        </script>
+    </body>
+</html>

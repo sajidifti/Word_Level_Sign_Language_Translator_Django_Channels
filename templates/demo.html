@@ -1,0 +1,209 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600&display=swap"
+              rel="stylesheet" />
+        <link rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <link rel="shortcut icon" type="image/png" href="img/fav.png" />
+        <link rel="stylesheet" href="{% static 'css/transLatorPhone.css' %}" />
+        <script defer src="{% static 'js/signToText.js' %}"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+        <title>|&nbsp; WLSLT - Word-level Deep Sign Language Recognition</title>
+    </head>
+    <body>
+        <header class="header">
+            <nav class="nav">
+                <a href="https://sajidifti.com/WLASL">
+                    <img src="{% static 'img/WLSLT-logos_transparent.png' %}"
+                         alt="Logo"
+                         class="nav__logo"
+                         id="logo" />
+                </a>
+            </nav>
+        </header>
+        <section class="translator-container">
+            <div class="translator">
+                <div class="top">
+                    <video id="video"
+                           autoplay
+                           playsinline
+                           class="transparent-video"
+                           width="640px"
+                           height="480px"
+                           style="transform: scaleX(-1);
+                                  border-radius: 10px">
+                    </video>
+                    <h2 id="open" style="text-align: center">Opening Camera</h2>
+                    <canvas id="canvas" style="display: none" width="640px" height="480px"></canvas>
+                </div>
+                <div class="bottom">
+                    <p id="translated_field">Translated Text</p>
+                </div>
+            </div>
+            <div class="btns-container">
+                <a href="javascript:Mode();" id="clearButton">Clear</a>
+            </div>
+        </section>
+        <script>
+            var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+        </script>
+        <script>
+            function setup() {
+                createCanvas(640, 480);
+                let video = createCapture(VIDEO);
+                video.size(640, 480);
+                video.elt.setAttribute("playsinline", "");
+                video.hide();
+
+                let canvas = createGraphics(640, 480);
+                let ws;
+                let mode = true;
+
+                let jpegQuality = 5.0; // Adjust the quality to fit your needs (0.0 -> 1.0)
+
+                function captureAndSendFrame() {
+                    canvas.image(video, 0, 0, width, height);
+
+                    // Convert the captured frame from RGB to BGR format
+                    canvas.loadPixels();
+                    for (let i = 0; i < canvas.pixels.length; i += 4) {
+                        let r = canvas.pixels[i];
+                        let g = canvas.pixels[i + 1];
+                        let b = canvas.pixels[i + 2];
+                        canvas.pixels[i] = b; // Swap Red and Blue channels
+                        canvas.pixels[i + 2] = r;
+                    }
+                    canvas.updatePixels();
+
+                    // Send the frame over WebSocket
+                    if (ws.readyState == WebSocket.OPEN) {
+                        if (mode) {
+                            ws.send(new Uint8Array([]));
+                        } else {
+                            let imageData = canvas.canvas.toDataURL("image/jpeg", jpegQuality);
+                            ws.send(imageData);
+                        }
+                    }
+                }
+
+                setInterval(captureAndSendFrame, 34); // Adjust the delay to fit your needs (ms)
+
+                // WebSocket setup
+                ws = new WebSocket(ws_scheme + "://" + window.location.host + "/");
+                ws.onopen = (event) => {
+                    console.log("WebSocket connected!!!");
+                };
+                ws.onclose = (event) => {
+                    console.log("Close");
+                };
+
+                // Set the video to play when the mode is active
+                if (navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices
+                        .getUserMedia({
+                            video: {
+                                facingMode: "environment"
+                            }
+                        })
+                        .then(function(stream) {
+                            video.elt.srcObject = stream;
+                            if (!mode) {
+                                video.play();
+                            }
+                        });
+                }
+            }
+
+            function draw() {
+                // Optionally, you can add a background image or other visuals here
+            }
+
+            function Mode() {
+                mode = !mode;
+                if (mode) {
+                    video.pause();
+                    video.elt.srcObject.getVideoTracks()[0].stop();
+                } else {
+                    video.play();
+                }
+            }
+
+            Mode();
+        </script>
+        <script>
+            $(document).ready(function() {
+                // Get the CSRF token from the cookie
+                function getCookie(name) {
+                    var cookieValue = null;
+                    if (document.cookie && document.cookie !== "") {
+                        var cookies = document.cookie.split(";");
+                        for (var i = 0; i < cookies.length; i++) {
+                            var cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === name + "=") {
+                                cookieValue = decodeURIComponent(
+                                    cookie.substring(name.length + 1)
+                                );
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+
+                // Set the CSRF token header for AJAX requests
+                function setCsrfToken() {
+                    var csrftoken = getCookie("csrftoken");
+                    $.ajaxSetup({
+                        headers: {
+                            "X-CSRFToken": csrftoken,
+                        },
+                    });
+                }
+
+                // Function to update the content
+                function updateContent() {
+                    $.ajax({
+                        url: "{% url 'get-sentence' %}",
+                        type: "POST",
+                        success: function(response) {
+                            var clearedContent = response.content;
+                            $("#translated_field").html(clearedContent);
+                        },
+                    });
+                }
+
+                // Call the update function initially
+                setCsrfToken();
+                updateContent();
+
+                // Set interval to update the content every second (1000 milliseconds)
+                setInterval(function() {
+                    setCsrfToken();
+                    updateContent();
+                }, 1000);
+
+                // Attach an event listener to the clear button
+                $("#clearButton").click(function(event) {
+                    event.preventDefault(); // Prevent the default behavior
+
+                    setCsrfToken();
+                    $.ajax({
+                        url: "{% url 'clear-sentence' %}",
+                        type: "POST",
+                        success: function(response) {
+                            var clearedContent = response.content
+                            $("#translated_field").html(clearedContent);
+                        },
+                    });
+                });
+
+                // Additional code or functions can be added as needed
+            });
+        </script>
+    </body>
+</html>
