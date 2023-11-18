@@ -1,5 +1,7 @@
 # Word_Level_Sign_Language_Translator_Django_Channels
 
+## INCOMPLETE README. BOILERPLATE FROM ANOTHER PROJECT.
+
 ```
 daphne CameraAccess.asgi:application --port 8000 --bind 127.0.0.1
 ```
@@ -84,7 +86,7 @@ Before you begin, ensure you have the following installed:
 
 ## Contact
 
-For any inquiries or feedback, feel free to reach out via email: [azizultushar98@gmail.com](mailto:azizultushar98@gmail.com).
+For any inquiries or feedback, feel free to reach out via email: [info@sajidifti.com](mailto:info@sajidifti.com).
 
 ## Contributing
 
